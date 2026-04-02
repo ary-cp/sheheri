@@ -1,9 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import axios from 'axios';
-import { Home, Search, Plus, MapPin, ChevronRight } from 'lucide-react';
+import { Home, Search, Plus, MapPin, ChevronRight, User, LogIn, LogOut } from 'lucide-react';
 
 interface Post {
   _id: string;
@@ -20,6 +20,15 @@ export default function SearchPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => setIsLoggedIn(data.loggedIn))
+      .catch(() => {});
+  }, []);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -36,6 +45,14 @@ export default function SearchPage() {
       setSearched(true);
     }
     setLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+      method: 'POST', credentials: 'include'
+    });
+    setIsLoggedIn(false);
+    setProfileMenuOpen(false);
   };
 
   const timeAgo = (date: string) => {
@@ -103,6 +120,10 @@ export default function SearchPage() {
         ))}
       </div>
 
+      {profileMenuOpen && (
+        <div className="dropup-overlay" onClick={() => setProfileMenuOpen(false)} />
+      )}
+
       <nav className="bottom-nav">
         <Link href="/" className="nav-item">
           <Home size={20} />
@@ -116,6 +137,38 @@ export default function SearchPage() {
           <Plus size={20} />
           <span>post</span>
         </button>
+        <div className="nav-profile-wrapper">
+          <button
+            className="nav-item"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            <User size={20} />
+            <span>profile</span>
+          </button>
+          <div className={`dropup-menu ${profileMenuOpen ? 'open' : ''}`}>
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/profile"
+                  className="dropup-item"
+                  onClick={() => setProfileMenuOpen(false)}
+                >
+                  <User size={14} />
+                  Profile
+                </Link>
+                <button className="dropup-item danger" onClick={handleLogout}>
+                  <LogOut size={14} />
+                  Logout
+                </button>
+              </>
+            ) : (
+              <a href={`${process.env.NEXT_PUBLIC_API_URL}/auth/google`} className="dropup-item">
+                <LogIn size={14} />
+                Login
+              </a>
+            )}
+          </div>
+        </div>
       </nav>
     </>
   );
