@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gloq | City x Streets</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;700&family=Inter:wght@400;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #FF7B00;
+            --bg: #000;
+            --card-bg: rgba(10,10,10,0.6);
+        }
+
+        body.desi-mode {
+            --accent: #FF3300;
+            --card-bg: rgba(20,5,5,0.7);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none !important; }
+        body {
+            background: var(--bg);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            height: 18000px;
+            overflow-x: hidden;
+        }
+
+        /* ── CURSOR ── */
+        #cursor {
+            position: fixed; width: 12px; height: 12px; background: #fff; border-radius: 50%;
+            pointer-events: none; z-index: 10000; mix-blend-mode: difference;
+            transform: translate(-50%, -50%);
+            left: -100px; top: -100px;
+        }
+
+        /* ── LANG TOGGLE ── */
+        .lang-switch {
+            position: fixed; top: 40px; right: 40px; z-index: 1000;
+            background: rgba(255,255,255,0.05); backdrop-filter: blur(20px);
+            padding: 6px; border-radius: 50px; display: flex; gap: 5px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .lang-btn {
+            padding: 12px 24px; border-radius: 50px; font-weight: 900; font-size: 0.8rem;
+            cursor: pointer; transition: 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            letter-spacing: 1px;
+        }
+        .lang-btn.active { background: var(--accent); color: #000; box-shadow: 0 0 20px var(--accent); }
+
+        /* ── THEME OVERLAYS ── */
+        .desi-overlay {
+            position: fixed; inset: 0; z-index: -1; opacity: 0; pointer-events: none;
+            background: url('https://www.transparenttextures.com/patterns/pavement.png');
+            filter: sepia(1) saturate(5) hue-rotate(-20deg);
+            transition: 0.8s;
+        }
+        body.desi-mode .desi-overlay { opacity: 0.2; }
+
+        .glitch-flash {
+            position: fixed; inset: 0; z-index: 2000; background: #fff;
+            opacity: 0; pointer-events: none;
+        }
+
+        /* ── CANVAS & FX ── */
+        .viewport { position: fixed; inset: 0; perspective: 1200px; z-index: -1; }
+        #city-canvas { position: absolute; width: 100%; height: 100%; transform-style: preserve-3d; }
+        .grain { position: fixed; inset: 0; background: url('https://upload.wikimedia.org/wikipedia/commons/7/76/1k_stop_motion_film_grain.png'); opacity: 0.04; z-index: 1000; pointer-events: none; }
+
+        /* ── CARDS ── */
+        .reveal-item {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+            width: 100%; max-width: 650px; opacity: 0; pointer-events: none;
+            transition: all 1s cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: 100; perspective: 1200px;
+        }
+        .reveal-item.active { opacity: 1; pointer-events: all; transform: translate(-50%, -50%) scale(1); }
+
+        .urban-card {
+            background: var(--card-bg); backdrop-filter: blur(40px);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 60px; border-radius: 60px; text-align: center;
+            transform-style: preserve-3d; transition: transform 0.2s ease-out, border 0.5s;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+        }
+        body.desi-mode .urban-card { border: 2px solid var(--accent); border-radius: 20px; }
+
+        .urban-card h2 { font-family: 'Space Grotesk'; font-size: 3.5rem; margin-bottom: 20px; font-weight: 700; transform: translateZ(60px); }
+        body.desi-mode .urban-card h2 { font-size: 4.5rem; letter-spacing: -3px; }
+        .urban-card p { color: #aaa; font-size: 1.1rem; line-height: 1.6; transform: translateZ(40px); }
+
+        .hud { position: fixed; bottom: 40px; right: 40px; font-family: 'Space Grotesk'; font-size: 0.8rem; color: var(--accent); letter-spacing: 3px; }
+
+        .cta-button {
+            padding: 20px 40px;
+            border-radius: 20px;
+            background: #000;
+            color: #fff;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            border: 2px solid #000;
+            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .cta-button:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .cta-button:active {
+            transform: translateY(0) scale(0.95);
+        }
+
+        .success-msg {
+            display: none;
+            text-align: center;
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 1.2rem;
+            margin-top: 20px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            font-family: 'DM Serif Display', serif;
+        }
+        .success-msg.active {
+            display: block;
+            animation: glitch-in 0.5s ease-out forwards;
+        }
+        @keyframes glitch-in {
+            0% { opacity: 0; transform: skewX(20deg); }
+            50% { opacity: 1; transform: skewX(-10deg); }
+            100% { opacity: 1; transform: skewX(0); }
+        }
+
+
+    </style>
+</head>
+<body>
+
+    <div id="cursor"></div>
+    <div class="glitch-flash" id="flash"></div>
+    <div class="grain"></div>
+    <div class="desi-overlay"></div>
+
+    <div class="lang-switch">
+        <div class="lang-btn active" id="en-btn">ENGLISH</div>
+        <div class="lang-btn" id="hi-btn">देसी</div>
+    </div>
+
+    <div class="viewport">
+        <canvas id="city-canvas"></canvas>
+    </div>
+
+    <div class="main-content" id="main-content">
+        
+        <div class="reveal-item active" id="item-0">
+            <h1 id="hero-h1" style="font-family: 'Space Grotesk'; font-size: 10vw; font-weight: 900; text-align: center; line-height: 0.9;">Sheheri.</h1>
+            <p style="text-align: center; color: var(--accent); font-size: 0.8rem; font-weight: 900; margin-top: -10px; letter-spacing: 5px;">A GLOQ LABS PRODUCTION</p>
+            <p id="hero-tag" style="text-align: center; color: #fff; font-size: 1.4rem; font-weight: 300; margin-top: 20px; letter-spacing: 5px; opacity: 0.8; text-transform: uppercase;">The Anonymous Nervous System of Your Streets.</p>
+            <p id="hero-p" style="text-align: center; color: var(--accent); letter-spacing: 15px; font-weight: 700; margin-top: 30px;">ANONYMOUS HYPERLOCAL SOCIAL MEDIA</p>
+        </div>
+
+        <div class="reveal-item" id="item-1"><div class="urban-card"><h2 id="f1-h">Anonymous.</h2><p id="f1-p">No phone numbers. No tracking. Share the rawest updates from your neighborhood without a trace.</p></div></div>
+        <div class="reveal-item" id="item-2"><div class="urban-card"><h2 id="f2-h">Ephemeral.</h2><p id="f2-p">Moments that fade. Stories that vanish with the night, keeping it real.</p></div></div>
+        <div class="reveal-item" id="item-3"><div class="urban-card"><h2 id="f3-h">Local Legend.</h2><p id="f3-p">Earn Aura for your contributions. Level up and lead the conversation in your block.</p></div></div>
+        <div class="reveal-item" id="item-4"><div class="urban-card"><h2 id="f4-h">Verified.</h2><p id="f4-p">GPS-backed proof. Real signals from people standing right there on the ground.</p></div></div>
+        <div class="reveal-item" id="item-5"><div class="urban-card"><h2 id="f5-h">Shadow DMs.</h2><p id="f5-p">End-to-end encrypted signals. Private city-wide conversations that stay off the grid.</p></div></div>
+        
+        <div class="reveal-item" id="item-6">
+            <div class="urban-card" style="background: var(--surface); border: 1px solid rgba(212,133,74,0.25);">
+                <h2 id="f6-h" style="color: var(--text);">Enter the grid.</h2>
+                <form id="waitlist-form" action="https://formspree.io/f/mvzddgbw" method="POST" style="display: flex; flex-direction: column; gap: 15px; margin-top: 30px;">
+                    <input type="email" name="email" placeholder="Your email" required style="padding: 18px; border-radius: 10px; border: 1px solid rgba(255,220,180,0.12); background: rgba(255,220,180,0.04); color: #F2EDE6; text-align: center; font-family: 'Inter', sans-serif; font-size: 1rem; outline: none;">
+                    <button id="cta-btn" type="submit" class="cta-button">JOIN WAITLIST</button>
+                </form>
+                <div id="success-msg" class="success-msg">WELCOME TO THE GRID.</div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <div class="hud" id="hud">SECTOR: MG_ROAD</div>
+
+    <script>
+        const canvas = document.getElementById('city-canvas');
+        const ctx = canvas.getContext('2d');
+        const items = document.querySelectorAll('.reveal-item');
+        const cards = document.querySelectorAll('.urban-card');
+        const enBtn = document.getElementById('en-btn');
+        const hiBtn = document.getElementById('hi-btn');
+        const flash = document.getElementById('flash');
+        const cursor = document.getElementById('cursor');
+
+        let isDesi = false;
+        let buildings = [];
+        let scrollY = 0, lastScrollY = 0, speed = 0, zoom = 1, targetZoom = 1;
+
+        const STREETS_EN = ["MG_ROAD", "CYBER_CITY", "PARK_AVENUE", "OLD_TOWN", "INDRA_HUB", "MALL_GALI"];
+        const STREETS_HI = ["एमजी_रोड", "साइबर_सिटी", "पार्क_एवेन्यू", "पुरानी_दिल्ली", "इंद्रा_हब", "मॉल_गली"];
+
+        const CONTENT = {
+            en: {
+                hero: "Sheheri.", 
+                hero_tag: "The Anonymous Nervous System of Your Streets.", 
+                hero_p: "ANONYMOUS HYPERLOCAL SOCIAL MEDIA",
+                f1_h: "Ghost Mode.", f1_p: "Stay off the radar. No numbers, no logs, just the raw truth from your block.",
+                f2_h: "Vanish.", f2_p: "What happens tonight, stays tonight. Content that self-destructs by dawn.",
+                f3_h: "Aura.", f3_p: "Climb the ranks. Gain street cred and let your signals lead the city.",
+                f4_h: "Ground Zero.", f4_p: "Hard proof. GPS-verified signals from the people actually standing there.",
+                f5_h: "Dark Signals.", f5_p: "End-to-end encrypted whispers. Private city conversations that stay off the grid.",
+                f6_h: "Enter the grid.", cta: "JOIN WAITLIST"
+            },
+            hi: {
+                hero: "शेहरी।", 
+                hero_tag: "शहर की दबी आवाज़, अब खुलेआम।", 
+                hero_p: "अनाम आवाज़, असली मोहल्ला",
+                f1_h: "बेखौफ।", f1_p: "बिना नाम बताए अपनी बात रखो। कोई ट्रैकिंग नहीं, कोई नंबर नहीं, सिर्फ आपका सच।",
+                f2_h: "सुबह साफ़।", f2_p: "आज की बात आज ही खत्म। आपकी कहानियाँ रात के साथ ओझल हो जाएँगी।",
+                f3_h: "गली के किंग।", f3_p: "अपना 'Aura' बढ़ाओ। मोहल्ले की बातों में सबसे आगे रहो और लीडर बनो।",
+                f4_h: "पक्का सच।", f4_p: "झूठ की कोई जगह नहीं। GPS के साथ पक्का सबूत, सीधा जमीन से।",
+                f5_h: "सीक्रेट चैट।", f5_p: "पूरी तरह सुरक्षित। शहर की गुफ्तगू जो सिर्फ आपके और उनके बीच रहेगी।",
+                f6_h: "शहर में आएं।", cta: "वेटलिस्ट ज्वाइन करें"
+            }
+        };
+
+        function setLang(lang) {
+            flash.style.opacity = '1';
+            setTimeout(() => { flash.style.opacity = '0'; }, 150);
+            isDesi = (lang === 'hi');
+            document.body.classList.toggle('desi-mode', isDesi);
+            enBtn.classList.toggle('active', !isDesi);
+            hiBtn.classList.toggle('active', isDesi);
+            
+            const data = CONTENT[lang];
+            document.getElementById('hero-h1').innerText = data.hero;
+            document.getElementById('hero-tag').innerText = data.hero_tag;
+            document.getElementById('hero-p').innerText = data.hero_p;
+            document.getElementById('f1-h').innerText = data.f1_h; document.getElementById('f1-p').innerText = data.f1_p;
+            document.getElementById('f2-h').innerText = data.f2_h; document.getElementById('f2-p').innerText = data.f2_p;
+            document.getElementById('f3-h').innerText = data.f3_h; document.getElementById('f3-p').innerText = data.f3_p;
+            document.getElementById('f4-h').innerText = data.f4_h; document.getElementById('f4-p').innerText = data.f4_p;
+            document.getElementById('f5-h').innerText = data.f5_h; document.getElementById('f5-p').innerText = data.f5_p;
+            document.getElementById('f6-h').innerText = data.f6_h; document.getElementById('cta-btn').innerText = data.cta;
+            document.getElementById('success-msg').innerText = isDesi ? "स्वागत है, शेहरी!" : "WELCOME TO THE GRID.";
+        }
+
+
+        enBtn.addEventListener('click', () => setLang('en'));
+        hiBtn.addEventListener('click', () => setLang('hi'));
+
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            buildings = [];
+            for (let i = 0; i < 1500; i++) {
+                buildings.push({
+                    x: Math.random() * 4000 - 2000,
+                    y: Math.random() * 4000 - 2000,
+                    z: Math.random() * 2000,
+                    w: Math.random() * 40 + 20,
+                    h: Math.random() * 100 + 40,
+                    color: i % 10 === 0 ? '#D4854A' : 'rgba(255,220,180,0.06)'
+                });
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            speed = Math.abs(scrollY - lastScrollY) * 0.4;
+            lastScrollY = scrollY;
+            zoom += (targetZoom - zoom) * 0.05;
+
+            buildings.forEach(b => {
+                b.z -= (2 + speed);
+                if (b.z <= 1) b.z = 2000;
+                const perspective = 300 / (b.z * zoom);
+                const px = b.x * perspective + canvas.width/2;
+                const py = b.y * perspective + canvas.height/2;
+                if (px > -100 && px < canvas.width + 100 && py > -100 && py < canvas.height + 100) {
+                    ctx.strokeStyle = isDesi ? 'rgba(232,121,58,0.35)' : b.color;
+                    ctx.strokeRect(px - (b.w*perspective)/2, py - (b.h*perspective)/2, b.w*perspective, b.h*perspective);
+                }
+            });
+            requestAnimationFrame(animate);
+        }
+
+        init(); animate();
+
+        window.addEventListener('scroll', () => {
+            scrollY = window.scrollY;
+            const height = document.body.scrollHeight - window.innerHeight;
+            const percent = scrollY / height;
+            const sectorNames = isDesi ? STREETS_HI : STREETS_EN;
+            hud.innerText = `SECTOR: ${sectorNames[Math.floor(percent * 5.9)]}`;
+            const sectorIndex = Math.round(percent * 6);
+            targetZoom = 1.3 - (Math.abs((percent * 6) - sectorIndex) * 1.8);
+            if (targetZoom < 0.3) targetZoom = 0.3;
+            items.forEach((item, i) => {
+                const trigger = i * (height / 6);
+                if (scrollY > trigger - 800 && scrollY < trigger + 1500) item.classList.add('active');
+                else item.classList.remove('active');
+            });
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+            const x = (e.clientX - window.innerWidth / 2) / 25;
+            const y = (e.clientY - window.innerHeight / 2) / 25;
+            cards.forEach(card => card.style.transform = `rotateY(${x}deg) rotateX(${-y}deg)`);
+        });
+        window.addEventListener('resize', init);
+
+        // ── FORM HANDLING ──
+        const form = document.getElementById('waitlist-form');
+        const ctaBtn = document.getElementById('cta-btn');
+        const successDiv = document.getElementById('success-msg');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const originalText = ctaBtn.innerText;
+            ctaBtn.innerText = isDesi ? "रजिस्टर हो रहा है..." : "INITIALIZING...";
+            ctaBtn.style.opacity = '0.5';
+            ctaBtn.style.pointerEvents = 'none';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (response.ok) {
+                    form.style.display = 'none';
+                    successDiv.classList.add('active');
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                ctaBtn.innerText = isDesi ? "फिर से कोशिश करें" : "TRY AGAIN";
+                ctaBtn.style.opacity = '1';
+                ctaBtn.style.pointerEvents = 'all';
+                setTimeout(() => { ctaBtn.innerText = originalText; }, 2000);
+            }
+        });
+    </script>
+
+</body>
+</html>
